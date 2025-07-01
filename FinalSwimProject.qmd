@@ -1,0 +1,250 @@
+---
+title: "Analyzing Current world Leaders in Swimming to World Record Holders"
+author: 
+  - "Eric Kim"
+date: "June 30, 2025"
+format: pdf
+toc: true
+fig-cap: true
+execute: 
+  echo: False
+---
+# Introduction
+
+Swimming is very popular sport where althetes will race against each other in one of four strokes.It has become so recognized that an international federation called FINA was created and started to regulate rules. Rules like technique, suits you can wear, drugs you can and cant use. Since the early 1900's, these rules have slowly changed over time, and so has the records for each event.
+
+In this project, I want to find more about 3 main questions:
+
+1.  How far away are the top times from the current world record?
+
+2.  What countries did the best during the Olympics throughout 1912-2020?
+
+3.  What are the differences between 2 Olympic Games times?
+
+These questions will help find how hard a record is to break as well as see how much the average time has gotten over the years. Some records have lasted for decades, while others have recently been broken. By analyzing the times and when they occurred we can see just how close swimmers are to really breaking the record.
+
+# Data Provenance
+
+For this project, I used 3 data sets to explore how well swimmers perform during the Olympics and how they compare to a World record Holder. The data sets were from a reliable source, mainly Kaggle. The data used was directly from the Olympics website. Each cases is determined by the event and the time swam.
+
+## Primary Dataset
+
+-   Source: Kaggle
+-   Description: The primary dataset consists of detailed swims that occured during any Olympics from 1912-2020. The content most likely used are the host city of olympics, the year, distance and stroke of event, gender, names, and results. It has 4,359 rows and 10 cloumns to represent each performance during the olympics.
+
+## Secondary Dataset
+
+-   Source: Wikipedia
+
+-   Description: This secondary data set provides us with all possible world record times for men and women, as well as, long course and short course. I will be focusing on the short course tables. Like the primary data set, this data set includes the event, time, name, and location. it contains 24 rows and 8 columns.
+
+-   Source: Kaggle
+
+-   Description: This secondary data set provides the best 200 times in each swim event. It contains event name, time, athlete name, gender, rank order,etc. It has 5200 rows and 14 columns
+
+```{r}
+#Tidyverse Style Guide
+library(dplyr)
+library(knitr)
+library(ggplot2)
+library(readr)
+library(rvest)
+
+# Load the primary data set 
+primary_data <- read_csv("/Users/erickim/Desktop/Olympic_Swimming_Results_1912to2020 (1).csv")
+
+
+# Load the 1st secondary data set
+url1 <- "https://en.wikipedia.org/wiki/List_of_world_records_in_swimming"
+read <- read_html(url1)
+
+ListOfTables <- html_table(read,fill = TRUE)
+#short course men's world records
+recordTable <- ListOfTables[[4]]
+kable(recordTable)
+# Load the 2nd secondary data set
+Swimming_database_2 <- read_csv("/Users/erickim/Desktop/Swimming database 2.csv")
+
+
+# Rename Columns
+primary_data <- primary_data %>%
+  rename(Name = "Athlete")
+Swimming_database_2 <-Swimming_database_2%>%
+  rename(
+    Name = "Athlete Full Name",
+    Time = "Swim time",
+    Event = "Event description",
+    Rank = "Rank_Order",
+    date = "Swim date",
+    Event_name = "Event Name",
+    Team_name = "Team Name", 
+    age = "Athlete birth date",
+    gender = "Gender"
+    )
+
+# Merge Data sets
+merged_data <- Swimming_database_2 %>%
+  left_join(
+    primary_data,
+    by = "Name"
+  )
+
+```
+
+# Exploratory Data Analysis (EDA)
+
+For my Exploratory Data Analysis(EDA), I wanted to specalize my search from the date to specifically male Butterfly events, in order to answer my research questions. I started by creating a scatter plot of the top 10 swims in a given fly event, the lowest point being the fastest time. A scatterplot allows us to see where some swims line up with others, as well as, seeing if a certain swimmer is setting multiple top times. Along side, I would like to take the top 3 swimmers to create a boxplot. We can use this to see if the top races were a one off event or if they consistently hit a certain mark.
+
+### Scatter Plots
+
+This scatter plot(Figure 1) will show the relationship between age of athlete to the times they achieved.
+
+```{r fig.cap="Scatter Plot of ages that produced the fastest times in 100 Butterfly."}
+# Scatter Plot1
+Swimming_database_2$age<- as.Date(Swimming_database_2$age, format = "%m-%d-%y")
+new_age <- format(Swimming_database_2$age, "%y-%m-%d")
+byAge <- Swimming_database_2%>%
+  filter( Event %in% c( "Men 100 Butterfly LCM Male"))%>%
+  arrange(Time)%>%
+  filter(row_number()<=20)
+
+ggplot(byAge, aes(x = age, y = Time))+
+  geom_point( color = "blue")+
+  labs(
+    title = " Worlds best 100 Butterfly times by age"
+  )
+
+```
+
+Thoughts: Looking at the scatterplot, we can clearly see one age stood out way more than the rest. The others typically stayed in the top half of the plot(slower times) with a couple one of races. Since the plot is only sampling from the top 20 times in this event, we can see that there was a long period of time where the lower of the 1986 points stayed as World Leader. This allows us to see just how long it took for a new World Record Swimmer to emerge and just how unlikely it is to be broken any time soon.
+
+```{r, fig.cap="Scatter Plot of the top 20 Women's 100 Butterly times by name"}
+# Scatter Plot2
+byName <- Swimming_database_2%>%
+  filter( Event %in% c( "Women 100 Butterfly LCM Female"))%>%
+  filter(row_number()<=20)
+  
+ggplot(byName, aes(x =Name, y = Time)) +
+  geom_point(color = "red") +
+  labs(title = "Swim rankings", x = "Swimmer", y = "Time")
+
+```
+
+Thoughts: This gives a great insight on which events are being dominated and which is an even competition. The plot shows that the top 20 times are all from 5 swimmers, with one(the WR holder) being having an overwhelming amount of top times. We can see how some swimmers are very consistent, while others very in time. By analyzing further, we can see if other factors come into play or if it was purely just a good race. Some factors include: Location, time of year, time in between top swims.
+
+### Box Plots
+
+This box plot will show us whether Men or Women have a larger gap between top 5 swims for 100 Butterfly.
+
+```{r, fig.cap="Box Plot showing the gap between World leaders and their top competiters"}
+# Boxplot
+boxplot1 <- Swimming_database_2%>%
+  filter( Event %in% c( "Men 100 Butterfly LCM Male","Women 100 Butterfly LCM Female"))
+  
+ggplot(boxplot1, aes(x =Name , y = Time)) +
+  geom_boxplot() +
+  facet_wrap(~gender)+
+  labs(
+    x = "Name",
+    y = "Time"
+  ) 
+```
+
+Thoughts: This lets us see how the top 200 times for 100 butterfly stack up against each other. The bolder the boxplot, the more frequent the time was hit. We are able to see how much some of the fast swimmers vary from race to race. Thhere are some swimmers who stay toward the slower part of the range, while others have a whole array that spans from one of the slowest of the 200 swims and one of the fastest. One good race doesn't always determine everything. There may be a outlier swim that isn't reproducable.
+
+# Conclusion
+We are way further than we think we are from break many of the current world Records. Many of the possible candidates are either getting past their prime or retired. We need to wait for the need huge wave of talent to take over the swimming scene. As seen in the plots, many of the top times are controlled by a select few. In order for things to get more competitive, the floor for performance must be raised, for both Male and Female.
+
+# Sources
+
+“List of World Records in Swimming.” Wikipedia, Wikimedia Foundation, 20 June 2025, en.wikipedia.org/wiki/List_of_world_records_in_swimming.
+
+“Olympic Swimming History (1912 to 2020).” Kaggle, 18 Apr. 2023, www.kaggle.com/datasets/datasciencedonut/olympic-swimming-1912-to-2020/data.
+
+“Swimming: Top in the World in Each Category.” Kaggle, 27 Nov. 2022, www.kaggle.com/datasets/thedevastator/swimming-top-200-world-times-in-each-category.
+
+# Code Appendix
+
+```{r codeAppendix, ref.label = knitr::all_labels(),echo=TRUE,eval=FALSE}
+
+library(dplyr)
+library(knitr)
+library(ggplot2)
+library(readr)
+library(rvest)
+
+# Load the primary data set 
+primary_data <- read_csv("/Users/erickim/Desktop/Olympic_Swimming_Results_1912to2020 (1).csv")
+
+
+# Load the 1st secondary data set
+url1 <- "https://en.wikipedia.org/wiki/List_of_world_records_in_swimming"
+read <- read_html(url1)
+
+ListOfTables <- html_table(read,fill = TRUE)
+#short course men's world records
+recordTable <- ListOfTables[[4]]
+kable(recordTable)
+# Load the 2nd secondary data set
+Swimming_database_2 <- read_csv("/Users/erickim/Desktop/Swimming database 2.csv")
+
+
+# Rename Columns
+primary_data <- primary_data %>%
+  rename(Name = "Athlete")
+Swimming_database_2 <-Swimming_database_2%>%
+  rename(
+    Name = "Athlete Full Name",
+    Time = "Swim time",
+    Event = "Event description",
+    Rank = "Rank_Order",
+    date = "Swim date",
+    Event_name = "Event Name",
+    Team_name = "Team Name", 
+    age = "Athlete birth date",
+    gender = "Gender"
+    )
+
+# Merge Data sets
+merged_data <- Swimming_database_2 %>%
+  left_join(
+    primary_data,
+    by = "Name"
+  )
+
+# Scatter Plot1
+
+Swimming_database_2$age<- as.Date(Swimming_database_2$age, format = "%m-%d-%y")
+new_age <- format(Swimming_database_2$age, "%y-%m-%d")
+byAge <- Swimming_database_2%>%
+  filter( Event %in% c( "Men 100 Butterfly LCM Male"))%>%
+  arrange(Time)%>%
+  filter(row_number()<=20)
+
+ggplot(byAge, aes(x = age, y = Time))+
+  geom_point( color = "blue")+
+  labs(
+    title = " Worlds best 100 Butterfly times by age"
+  )
+
+# Scatter Plot2
+byName <- Swimming_database_2%>%
+  filter( Event %in% c( "Women 100 Butterfly LCM Female"))%>%
+  filter(row_number()<=20)
+  
+ggplot(byName, aes(x =Name, y = Time)) +
+  geom_point(color = "red") +
+  labs(title = "Swim rankings", x = "Swimmer", y = "Time")
+
+# Boxplot
+boxplot1 <- Swimming_database_2%>%
+  filter( Event %in% c( "Men 100 Butterfly LCM Male","Women 100 Butterfly LCM Female"))
+  
+ggplot(boxplot1, aes(x =Name , y = Time)) +
+  geom_boxplot() +
+  facet_wrap(~gender)+
+  labs(
+    x = "Name",
+    y = "Time"
+  ) 
+```
